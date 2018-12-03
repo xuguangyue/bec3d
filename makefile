@@ -38,8 +38,8 @@
 	CC = gcc-8 -m64
 	CFLAGS = -O3 -Wall
 	OMPFLAGS = -fopenmp
-	CLIBS = -lm
-	OMPLIBS = -lpthread
+	CLIBS = -lfftw3 -lm
+	OMPLIBS = -lfftw3_omp
 
 all: imag3d real3d
 
@@ -110,4 +110,4 @@ mem:
 	$(CC) $(CFLAGS) -c src/utils/mem.c -o mem.o
 
 clean:
-	rm -rf *~ *.o *.out 
+	rm -rf *~ *.o *.out

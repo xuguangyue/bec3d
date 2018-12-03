@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <fftw3.h>
 #include <complex.h>
 #include <omp.h>
 #include <time.h>
@@ -32,11 +33,11 @@
 #define MAX(a, b, c) (a > b) ? ((a > c) ? a : c) : ((b > c) ? b : c)
 #define MAX_FILENAME_SIZE 256
 #define RMS_ARRAY_SIZE    7
+#define FFT_FLAG          FFTW_MEASURE
+#define BOHR_RADIUS       5.2917720859e-11
 
-#define BOHR_RADIUS        5.2917720859e-11
-
-char *output, *rmsout, *initout, *rmsout, *Nstpout, *Npasout, *Nrunout, *dynaout;
-long outstpx, outstpy, outstpz, outstpt;
+char *output, *rmsout, *initout, *rmsout, *Nstpout, *Npasout, *Nrunout, *dynaout, *tempout;
+long outstpx, outstpy, outstpz, outstpt, outstpwf;
 
 int opt;
 long Na;
@@ -57,20 +58,26 @@ double *x, *y, *z;
 double *x2, *y2, *z2;
 double ***pot;
 
-double complex Ax0, Ay0, Az0, Ax0r, Ay0r, Az0r, Ax, Ay, Az;
-double complex *calphax, *calphay, *calphaz;
-double complex *cgammax, *cgammay, *cgammaz;
+double complex ***um1;
+fftw_complex *fftin, *fftout;
+fftw_plan pf, pb;
+
+// double complex Ax0, Ay0, Az0, Ax0r, Ay0r, Az0r, Ax, Ay, Az;
+// double complex *calphax, *calphay, *calphaz;
+// double complex *cgammax, *cgammay, *cgammaz;
 
 void readpar(void);
 void init(double complex ***, double ***);
-void gencoef(void);
+// void gencoef(void);
 void calcnorm(double *, double complex ***, double **, double **, double **);
 void calcmuen(double *, double *, double complex ***, double ***, double ***, double ***, double **, double **, double **, double **, double **, double **, double **, double **, double **, double **, double **, double **);
 void calcrms(double *, double complex ***, double **, double **, double **, double **, double **, double **, double **, double **, double **);
 void calcnu(double complex ***);
-void calclux(double complex ***, double complex **);
-void calcluy(double complex ***, double complex **);
-void calcluz(double complex ***, double complex **);
+// void calclux(double complex ***, double complex **);
+// void calcluy(double complex ***, double complex **);
+// void calcluz(double complex ***, double complex **);
+void grad3(double complex ***);
+void calcfft(double complex ***, fftw_complex *, fftw_complex *, fftw_plan);
 void outdenxyz(double complex ***, FILE *);
 void outdenx(double complex ***, double *, double *, FILE *);
 void outdeny(double complex ***, double *, double *, FILE *);

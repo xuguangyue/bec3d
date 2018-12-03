@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
    double vgammat2, vnut2, vlambdat2;
    double *rms;
    double complex ***psi;
-   double complex **cbeta;
+   // double complex **cbeta;
    double ***dpsix, ***dpsiy, ***dpsiz;
    double **tmpxi, **tmpyi, **tmpzi, **tmpxj, **tmpyj, **tmpzj;
    double **tmpxk, **tmpyk, **tmpzk, **tmpxl, **tmpyl, **tmpzl;
@@ -133,18 +133,19 @@ int main(int argc, char **argv) {
    pot = alloc_double_tensor(Nx, Ny, Nz);
    psi = alloc_complex_tensor(Nx, Ny, Nz);
    abc = alloc_double_tensor(Nx, Ny, Nz);
+   um1 = alloc_complex_tensor(Nx, Ny, Nz);
 
    dpsix = alloc_double_tensor(Nx, Ny, Nz);
    dpsiy = alloc_double_tensor(Nx, Ny, Nz);
    dpsiz = alloc_double_tensor(Nx, Ny, Nz);
 
-   calphax = alloc_complex_vector(Nx - 1);
-   calphay = alloc_complex_vector(Ny - 1);
-   calphaz = alloc_complex_vector(Nz - 1);
-   cbeta =  alloc_complex_matrix(nthreads, MAX(Nx, Ny, Nz) - 1);
-   cgammax = alloc_complex_vector(Nx - 1);
-   cgammay = alloc_complex_vector(Ny - 1);
-   cgammaz = alloc_complex_vector(Nz - 1);
+   // calphax = alloc_complex_vector(Nx - 1);
+   // calphay = alloc_complex_vector(Ny - 1);
+   // calphaz = alloc_complex_vector(Nz - 1);
+   // cbeta =  alloc_complex_matrix(nthreads, MAX(Nx, Ny, Nz) - 1);
+   // cgammax = alloc_complex_vector(Nx - 1);
+   // cgammay = alloc_complex_vector(Ny - 1);
+   // cgammaz = alloc_complex_vector(Nz - 1);
 
    tmpxi = alloc_double_matrix(nthreads, Nx);
    tmpyi = alloc_double_matrix(nthreads, Ny);
@@ -162,6 +163,15 @@ int main(int argc, char **argv) {
    tmpx = alloc_double_vector(Nx);
    tmpy = alloc_double_vector(Ny);
    tmpz = alloc_double_vector(Nz);
+
+   /* allocate space and initialize real array to transform */
+   fftin = (fftw_complex *)fftw_malloc( sizeof(fftw_complex)*Nx*Ny*Nz);
+   fftout = (fftw_complex *)fftw_malloc( sizeof(fftw_complex)*Nx*Ny*Nz);
+
+   fftw_init_threads();
+   fftw_plan_with_nthreads(nthreads);
+   pf = fftw_plan_dft_3d(Nx, Ny, Nz, fftin, fftout, FFTW_FORWARD, FFT_FLAG );
+   pb = fftw_plan_dft_3d(Nx, Ny, Nz, fftin, fftout, FFTW_BACKWARD, FFT_FLAG );
 
    if(output != NULL) {
       sprintf(filename, "%s.txt", output);
@@ -197,15 +207,15 @@ int main(int argc, char **argv) {
      fflush(filerms);
    }
 
+
+   init(psi, abc);
    if(Nstp == 0) {
      G = par * G0;
    }
    else {
      G = 0.;
    }
-
-   init(psi, abc);
-   gencoef();
+   grad3(um1);
    calcnorm(&norm, psi, tmpxi, tmpyi, tmpzi);
    calcmuen(&mu, &en, psi, dpsix, dpsiy, dpsiz, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj, tmpxk, tmpyk, tmpzk, tmpxl, tmpyl, tmpzl);
    calcrms(rms, psi, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj, tmpxk, tmpyk, tmpzk);
@@ -265,13 +275,27 @@ int main(int argc, char **argv) {
    }
 
    if(Nstp != 0) {
-     double g_stp = par * G0 / (double) Nstp;
-     for(cnti = 0; cnti < Nstp; cnti ++) {
-      G += g_stp;
-      calcnu(psi);
-      calclux(psi, cbeta);
-      calcluy(psi, cbeta);
-      calcluz(psi, cbeta);
+      double g_stp = par * G0 / (double) Nstp;
+      for(cntl = 0; cntl < Nstp; cntl ++) {
+         G += g_stp;
+
+         calcnu(psi);
+
+         // Fourier transform
+         calcfft(psi, fftin, fftout, pf);
+         // Evolution in momentum space
+         #pragma omp parallel for private(cnti, cntj)
+         for(cnti = 0; cnti < Nx; cnti++){
+            for(cntj = 0; cntj < Ny; cntj++){
+               for(cntk = 0; cntk < Nz; cntk++){
+                  psi[cnti][cntj][cntk] *= um1[cnti][cntj][cntk];
+               }
+            }
+         }
+         // Inverse Fourier transform
+         calcfft(psi, fftin, fftout, pb);
+
+         calcnu(psi);
      }
      calcnorm(&norm, psi, tmpxi, tmpyi, tmpzi);
      calcmuen(&mu, &en, psi, dpsix, dpsiy, dpsiz, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj, tmpxk, tmpyk, tmpzk, tmpxl, tmpyl, tmpzl);
@@ -358,14 +382,35 @@ int main(int argc, char **argv) {
          }
 
          calcnu(psi);
-         calclux(psi, cbeta);
-         calcluy(psi, cbeta);
-         calcluz(psi, cbeta);
+
+         // Fourier transform
+         calcfft(psi, fftin, fftout, pf);
+         // Evolution in momentum space
+         #pragma omp parallel for private(cnti, cntj)
+         for(cnti = 0; cnti < Nx; cnti++){
+            for(cntj = 0; cntj < Ny; cntj++){
+               for(cntk = 0; cntk < Nz; cntk++){
+                  psi[cnti][cntj][cntk] *= um1[cnti][cntj][cntk];
+               }
+            }
+         }
+         // Inverse Fourier transform
+         calcfft(psi, fftin, fftout, pb);
+
+         calcnu(psi);
+
          if((dynaout != NULL) && (cntl % outstpt == 0)) {
             calcrms(rms, psi, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj, tmpxk, tmpyk, tmpzk);
             calcmuen(&mu, &en, psi, dpsix, dpsiy, dpsiz, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj, tmpxk, tmpyk, tmpzk, tmpxl, tmpyl, tmpzl);
             fprintf(dyna, "%5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le\n", tt, norm, mu / par, en / par, *rms, rms[1], rms[2], rms[3], rms[4], rms[5], rms[6]);
             fflush(dyna);
+         }
+
+         if((tempout != NULL) && (cntl % outstpwf == 0)){
+            sprintf(filename, "%s_%li.txt", tempout, (long) tt);
+            file = fopen(filename, "w");
+            outdenxyz(psi, file);
+            fclose(file);
          }
 
          printf("%ld\n", cntl);
@@ -434,15 +479,37 @@ int main(int argc, char **argv) {
    if(Nrun != 0){
       for(cntl = 1; cntl <= Nrun; cntl ++) {
          tt = (cntl + Npas) * dt * par;
+
          calcnu(psi);
-         calclux(psi, cbeta);
-         calcluy(psi, cbeta);
-         calcluz(psi, cbeta);
+
+         // Fourier transform
+         calcfft(psi, fftin, fftout, pf);
+         // Evolution in momentum space
+         #pragma omp parallel for private(cnti, cntj)
+         for(cnti = 0; cnti < Nx; cnti++){
+            for(cntj = 0; cntj < Ny; cntj++){
+               for(cntk = 0; cntk < Nz; cntk++){
+                  psi[cnti][cntj][cntk] *= um1[cnti][cntj][cntk];
+               }
+            }
+         }
+         // Inverse Fourier transform
+         calcfft(psi, fftin, fftout, pb);
+
+         calcnu(psi);
+
          if((dynaout != NULL) && ((cntl + Npas) % outstpt == 0)) {
             calcrms(rms, psi, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj, tmpxk, tmpyk, tmpzk);
             calcmuen(&mu, &en, psi, dpsix, dpsiy, dpsiz, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj, tmpxk, tmpyk, tmpzk, tmpxl, tmpyl, tmpzl);
             fprintf(dyna, "%5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le\n", tt, norm, mu / par, en / par, *rms, rms[1], rms[2], rms[3], rms[4], rms[5], rms[6]);
             fflush(dyna);
+         }
+
+         if((tempout != NULL) && ((cntl + Npas) % outstpwf == 0)){
+            sprintf(filename, "%s_%li.txt", tempout, (long) tt);
+            file = fopen(filename, "w");
+            outdenxyz(psi, file);
+            fclose(file);
          }
 
          printf("%ld\n", cntl);
@@ -526,18 +593,19 @@ int main(int argc, char **argv) {
    free_double_tensor(pot);
    free_complex_tensor(psi);
    free_double_tensor(abc);
+   free_complex_tensor(um1);
 
    free_double_tensor(dpsix);
    free_double_tensor(dpsiy);
    free_double_tensor(dpsiz);
 
-   free_complex_vector(calphax);
-   free_complex_vector(calphay);
-   free_complex_vector(calphaz);
-   free_complex_matrix(cbeta);
-   free_complex_vector(cgammax);
-   free_complex_vector(cgammay);
-   free_complex_vector(cgammaz);
+   // free_complex_vector(calphax);
+   // free_complex_vector(calphay);
+   // free_complex_vector(calphaz);
+   // free_complex_matrix(cbeta);
+   // free_complex_vector(cgammax);
+   // free_complex_vector(cgammay);
+   // free_complex_vector(cgammaz);
 
    free_double_matrix(tmpxi);
    free_double_matrix(tmpyi);
@@ -552,6 +620,12 @@ int main(int argc, char **argv) {
    free_double_vector(tmpx);
    free_double_vector(tmpy);
    free_double_vector(tmpz);
+
+   fftw_destroy_plan(pf);
+   fftw_destroy_plan(pb);
+
+   fftw_free(fftin);
+   fftw_free(fftout);
 
    clock_end = time(NULL);
    double wall_time = difftime(clock_end, clock_beg);
@@ -667,6 +741,30 @@ void readpar(void) {
    }
    vlambda = atof(cfg_tmp);
 
+   if((cfg_tmp = cfg_read("AX")) == NULL) {
+      fprintf(stderr, "AX is not defined in the configuration file.\n");
+      exit(EXIT_FAILURE);
+   }
+   ax = atof(cfg_tmp);
+
+   if((cfg_tmp = cfg_read("AY")) == NULL) {
+      fprintf(stderr, "AY is not defined in the configuration file.\n");
+      exit(EXIT_FAILURE);
+   }
+   ay = atof(cfg_tmp);
+
+   if((cfg_tmp = cfg_read("AZ")) == NULL) {
+      fprintf(stderr, "AZ is not defined in the configuration file.\n");
+      exit(EXIT_FAILURE);
+   }
+   az = atof(cfg_tmp);
+
+   if((cfg_tmp = cfg_read("FREQ")) == NULL) {
+      fprintf(stderr, "FREQ is not defined in the configuration file.\n");
+      exit(EXIT_FAILURE);
+   }
+   freq = atof(cfg_tmp);
+
    if((cfg_tmp = cfg_read("NSTP")) == NULL) {
       fprintf(stderr, "NSTP is not defined in the configuration file.\n");
       exit(EXIT_FAILURE);
@@ -692,6 +790,7 @@ void readpar(void) {
    Nstpout = cfg_read("NSTPOUT");
    Npasout = cfg_read("NPASOUT");
    Nrunout = cfg_read("NRUNOUT");
+   tempout = cfg_read("TEMPOUT");
 
    if((initout != NULL) || (Nstpout != NULL) || (Npasout != NULL) || (Nrunout != NULL)) {
       if((cfg_tmp = cfg_read("OUTSTPX")) == NULL) {
@@ -730,7 +829,13 @@ void readpar(void) {
       outstpt = atol(cfg_tmp);
    }
 
-
+   if(tempout != NULL) {
+      if((cfg_tmp = cfg_read("OUTSTPWF")) == NULL) {
+         fprintf(stderr, "OUTSTPWF is not defined in the configuration file.\n");
+         exit(EXIT_FAILURE);
+      }
+      outstpwf = atol(cfg_tmp);
+   }
 
    return;
 }
@@ -818,44 +923,44 @@ void init(double complex ***psi, double ***abc) {
 /**
  *    Crank-Nicolson scheme coefficients generation.
  */
-void gencoef(void) {
-   long cnti;
+// void gencoef(void) {
+//    long cnti;
 
-   Ax0 = 1. + I * dt / dx2;
-   Ay0 = 1. + I * dt / dy2;
-   Az0 = 1. + I * dt / dz2;
+//    Ax0 = 1. + I * dt / dx2;
+//    Ay0 = 1. + I * dt / dy2;
+//    Az0 = 1. + I * dt / dz2;
 
-   Ax0r = 1. - I * dt / dx2;
-   Ay0r = 1. - I * dt / dy2;
-   Az0r = 1. - I * dt / dz2;
+//    Ax0r = 1. - I * dt / dx2;
+//    Ay0r = 1. - I * dt / dy2;
+//    Az0r = 1. - I * dt / dz2;
 
-   Ax = - 0.5 * I * dt / dx2;
-   Ay = - 0.5 * I * dt / dy2;
-   Az = - 0.5 * I * dt / dz2;
+//    Ax = - 0.5 * I * dt / dx2;
+//    Ay = - 0.5 * I * dt / dy2;
+//    Az = - 0.5 * I * dt / dz2;
 
-   calphax[Nx - 2] = 0.;
-   cgammax[Nx - 2] = - 1. / Ax0;
-   for (cnti = Nx - 2; cnti > 0; cnti --) {
-      calphax[cnti - 1] = Ax * cgammax[cnti];
-      cgammax[cnti - 1] = - 1. / (Ax0 + Ax * calphax[cnti - 1]);
-   }
+//    calphax[Nx - 2] = 0.;
+//    cgammax[Nx - 2] = - 1. / Ax0;
+//    for (cnti = Nx - 2; cnti > 0; cnti --) {
+//       calphax[cnti - 1] = Ax * cgammax[cnti];
+//       cgammax[cnti - 1] = - 1. / (Ax0 + Ax * calphax[cnti - 1]);
+//    }
 
-   calphay[Ny - 2] = 0.;
-   cgammay[Ny - 2] = - 1. / Ay0;
-   for (cnti = Ny - 2; cnti > 0; cnti --) {
-      calphay[cnti - 1] = Ay * cgammay[cnti];
-      cgammay[cnti - 1] = - 1. / (Ay0 + Ay * calphay[cnti - 1]);
-   }
+//    calphay[Ny - 2] = 0.;
+//    cgammay[Ny - 2] = - 1. / Ay0;
+//    for (cnti = Ny - 2; cnti > 0; cnti --) {
+//       calphay[cnti - 1] = Ay * cgammay[cnti];
+//       cgammay[cnti - 1] = - 1. / (Ay0 + Ay * calphay[cnti - 1]);
+//    }
 
-   calphaz[Nz - 2] = 0.;
-   cgammaz[Nz - 2] = - 1. / Az0;
-   for (cnti = Nz - 2; cnti > 0; cnti --) {
-      calphaz[cnti - 1] = Az * cgammaz[cnti];
-      cgammaz[cnti - 1] = - 1. / (Az0 + Az * calphaz[cnti - 1]);
-   }
+//    calphaz[Nz - 2] = 0.;
+//    cgammaz[Nz - 2] = - 1. / Az0;
+//    for (cnti = Nz - 2; cnti > 0; cnti --) {
+//       calphaz[cnti - 1] = Az * cgammaz[cnti];
+//       cgammaz[cnti - 1] = - 1. / (Az0 + Az * calphaz[cnti - 1]);
+//    }
 
-   return;
-}
+//    return;
+// }
 
 /**
  *    Calculation of the wave function norm and normalization.
@@ -1092,7 +1197,7 @@ void calcnu(double complex ***psi) {
             psi2 = cabs(psi[cnti][cntj][cntk]);
             psi2 *= psi2;
             psi2lin = psi2 * G;
-            tmp = dt * (pot[cnti][cntj][cntk] + psi2lin);
+            tmp = 0.5 * dt * (pot[cnti][cntj][cntk] + psi2lin);
             psi[cnti][cntj][cntk] *= cexp(- I * tmp);
          }
       }
@@ -1101,107 +1206,180 @@ void calcnu(double complex ***psi) {
    return;
 }
 
-/**
- *    Time propagation with respect to H2 (x-part of the Laplacian).
- *    psi   - array with the wave function values
- *    cbeta - Crank-Nicolson scheme coefficients
- */
-void calclux(double complex ***psi, double complex **cbeta) {
-   int threadid;
+void grad3(double complex ***um1){
+   double pi1 = 2 * pi / (double) Nx / dx;
+   double pj1 = 2 * pi / (double) Ny / dy;
+   double pk1 = 2 * pi / (double) Nz / dz;
+   double pi2 = -dt * pi1 * pi1;
+   double pj2 = -dt * pj1 * pj1;
+   double pk2 = -dt * pk1 * pk1;
+   double xyzn = 1.0 / ( (double) Nx * (double) Ny * (double) Nz);
+   long i, j, k;
+   long i1, j1, k1;
+   double pi3, pij3, pijk3;
+
+   #pragma omp for
+   for(i = 0; i < Nx; i++){
+      if(i < Nx/2){
+         i1 = i;
+      }
+      else{
+         i1 = i - Nx;
+      }
+      pi3 = (double) i1 * (double) i1 * pi2;
+      for(j = 0; j < Ny; j++){
+         if(j < Ny/2){
+            j1 = j;
+         }
+         else{
+            j1 = j - Ny;
+         }
+         pij3 = pi3 + (double) j1 * (double) j1 * pj2;
+         for(k = 0; k < Nz; k++){
+            if(k < Nz/2){
+               k1 = k;
+            }
+            else{
+               k1 = k - Nz;
+            }
+            pijk3 = pij3 + (double) k1 * (double) k1 * pk2;
+            um1[i][j][k] = xyzn * cexp( I * pijk3);
+         }
+      }
+   }
+   return;
+}
+
+void calcfft(double complex ***psi, fftw_complex *fftin, fftw_complex *fftout, fftw_plan p){
    long cnti, cntj, cntk;
-   double complex c;
 
-   #pragma omp parallel private(threadid, cnti, cntj, cntk, c)
-   {
-      threadid = omp_get_thread_num();
+   #pragma omp parallel for private(cnti, cntj, cntk)
+   for(cnti = 0; cnti < Nx; cnti++){
+      for(cntj = 0; cntj < Ny; cntj++){
+         for(cntk = 0; cntk < Nz; cntk++){
+            fftin[cnti * Ny * Nz + cntj * Nz + cntk][0] = creal(psi[cnti][cntj][cntk]);
+            fftin[cnti * Ny * Nz + cntj * Nz + cntk][1] = cimag(psi[cnti][cntj][cntk]);
+         }
+      }
+   }
 
-      #pragma omp for
-      for(cntj = 0; cntj < Ny; cntj ++) {
-         for(cntk = 0; cntk < Nz; cntk ++) {
-            cbeta[threadid][Nx - 2] = psi[Nx - 1][cntj][cntk];
-            for (cnti = Nx - 2; cnti > 0; cnti --) {
-               c = - Ax * psi[cnti + 1][cntj][cntk] + Ax0r * psi[cnti][cntj][cntk] - Ax * psi[cnti - 1][cntj][cntk];
-               cbeta[threadid][cnti - 1] =  cgammax[cnti] * (Ax * cbeta[threadid][cnti] - c);
-            }
-            psi[0][cntj][cntk] = 0.;
-            for (cnti = 0; cnti < Nx - 2; cnti ++) {
-               psi[cnti + 1][cntj][cntk] = calphax[cnti] * psi[cnti][cntj][cntk] + cbeta[threadid][cnti];
-            }
-            psi[Nx - 1][cntj][cntk] = 0.;
+   fftw_execute(p);
+
+   #pragma omp parallel for private(cnti, cntj, cntk)
+   for(cnti = 0; cnti < Nx; cnti++){
+      for(cntj = 0; cntj < Ny; cntj++){
+         for(cntk = 0; cntk < Nz; cntk++){
+            psi[cnti][cntj][cntk] = fftout[cnti * Ny * Nz + cntj * Nz + cntk][0]
+                                  + I * fftout[cnti * Ny * Nz + cntj * Nz + cntk][1];
          }
       }
    }
 
    return;
 }
+
+
+/**
+ *    Time propagation with respect to H2 (x-part of the Laplacian).
+ *    psi   - array with the wave function values
+ *    cbeta - Crank-Nicolson scheme coefficients
+ */
+// void calclux(double complex ***psi, double complex **cbeta) {
+//    int threadid;
+//    long cnti, cntj, cntk;
+//    double complex c;
+
+//    #pragma omp parallel private(threadid, cnti, cntj, cntk, c)
+//    {
+//       threadid = omp_get_thread_num();
+
+//       #pragma omp for
+//       for(cntj = 0; cntj < Ny; cntj ++) {
+//          for(cntk = 0; cntk < Nz; cntk ++) {
+//             cbeta[threadid][Nx - 2] = psi[Nx - 1][cntj][cntk];
+//             for (cnti = Nx - 2; cnti > 0; cnti --) {
+//                c = - Ax * psi[cnti + 1][cntj][cntk] + Ax0r * psi[cnti][cntj][cntk] - Ax * psi[cnti - 1][cntj][cntk];
+//                cbeta[threadid][cnti - 1] =  cgammax[cnti] * (Ax * cbeta[threadid][cnti] - c);
+//             }
+//             psi[0][cntj][cntk] = 0.;
+//             for (cnti = 0; cnti < Nx - 2; cnti ++) {
+//                psi[cnti + 1][cntj][cntk] = calphax[cnti] * psi[cnti][cntj][cntk] + cbeta[threadid][cnti];
+//             }
+//             psi[Nx - 1][cntj][cntk] = 0.;
+//          }
+//       }
+//    }
+
+//    return;
+// }
 
 /**
  *    Time propagation with respect to H3 (y-part of the Laplacian).
  *    psi   - array with the wave function values
  *    cbeta - Crank-Nicolson scheme coefficients
  */
-void calcluy(double complex ***psi, double complex **cbeta) {
-   int threadid;
-   long cnti, cntj, cntk;
-   double complex c;
+// void calcluy(double complex ***psi, double complex **cbeta) {
+//    int threadid;
+//    long cnti, cntj, cntk;
+//    double complex c;
 
-   #pragma omp parallel private(threadid, cnti, cntj, cntk, c)
-   {
-      threadid = omp_get_thread_num();
+//    #pragma omp parallel private(threadid, cnti, cntj, cntk, c)
+//    {
+//       threadid = omp_get_thread_num();
 
-      #pragma omp for
-      for(cnti = 0; cnti < Nx; cnti ++) {
-         for(cntk = 0; cntk < Nz; cntk ++) {
-            cbeta[threadid][Ny - 2] = psi[cnti][Ny - 1][cntk];
-            for (cntj = Ny - 2; cntj > 0; cntj --) {
-               c = - Ay * psi[cnti][cntj + 1][cntk] + Ay0r * psi[cnti][cntj][cntk] - Ay * psi[cnti][cntj - 1][cntk];
-               cbeta[threadid][cntj - 1] =  cgammay[cntj] * (Ay * cbeta[threadid][cntj] - c);
-            }
-            psi[cnti][0][cntk] = 0.;
-            for (cntj = 0; cntj < Ny - 2; cntj ++) {
-               psi[cnti][cntj + 1][cntk] = calphay[cntj] * psi[cnti][cntj][cntk] + cbeta[threadid][cntj];
-            }
-            psi[cnti][Ny - 1][cntk] = 0.;
-         }
-      }
-   }
+//       #pragma omp for
+//       for(cnti = 0; cnti < Nx; cnti ++) {
+//          for(cntk = 0; cntk < Nz; cntk ++) {
+//             cbeta[threadid][Ny - 2] = psi[cnti][Ny - 1][cntk];
+//             for (cntj = Ny - 2; cntj > 0; cntj --) {
+//                c = - Ay * psi[cnti][cntj + 1][cntk] + Ay0r * psi[cnti][cntj][cntk] - Ay * psi[cnti][cntj - 1][cntk];
+//                cbeta[threadid][cntj - 1] =  cgammay[cntj] * (Ay * cbeta[threadid][cntj] - c);
+//             }
+//             psi[cnti][0][cntk] = 0.;
+//             for (cntj = 0; cntj < Ny - 2; cntj ++) {
+//                psi[cnti][cntj + 1][cntk] = calphay[cntj] * psi[cnti][cntj][cntk] + cbeta[threadid][cntj];
+//             }
+//             psi[cnti][Ny - 1][cntk] = 0.;
+//          }
+//       }
+//    }
 
-   return;
-}
+//    return;
+// }
 
 /**
  *    Time propagation with respect to H4 (z-part of the Laplacian).
  *    psi   - array with the wave function values
  *    cbeta - Crank-Nicolson scheme coefficients
  */
-void calcluz(double complex ***psi, double complex **cbeta) {
-   int threadid;
-   long cnti, cntj, cntk;
-   double complex c;
+// void calcluz(double complex ***psi, double complex **cbeta) {
+//    int threadid;
+//    long cnti, cntj, cntk;
+//    double complex c;
 
-   #pragma omp parallel private(threadid, cnti, cntj, cntk, c)
-   {
-      threadid = omp_get_thread_num();
+//    #pragma omp parallel private(threadid, cnti, cntj, cntk, c)
+//    {
+//       threadid = omp_get_thread_num();
 
-      #pragma omp for
-      for(cnti = 0; cnti < Nx; cnti ++) {
-         for(cntj = 0; cntj < Ny; cntj ++) {
-            cbeta[threadid][Nz - 2] = psi[cnti][cntj][Nz - 1];
-            for (cntk = Nz - 2; cntk > 0; cntk --) {
-               c = - Az * psi[cnti][cntj][cntk + 1] + Az0r * psi[cnti][cntj][cntk] - Az * psi[cnti][cntj][cntk - 1];
-               cbeta[threadid][cntk - 1] =  cgammaz[cntk] * (Az * cbeta[threadid][cntk] - c);
-            }
-            psi[cnti][cntj][0] = 0.;
-            for (cntk = 0; cntk < Nz - 2; cntk ++) {
-               psi[cnti][cntj][cntk + 1] = calphaz[cntk] * psi[cnti][cntj][cntk] + cbeta[threadid][cntk];
-            }
-            psi[cnti][cntj][Nz - 1] = 0.;
-         }
-      }
-   }
+//       #pragma omp for
+//       for(cnti = 0; cnti < Nx; cnti ++) {
+//          for(cntj = 0; cntj < Ny; cntj ++) {
+//             cbeta[threadid][Nz - 2] = psi[cnti][cntj][Nz - 1];
+//             for (cntk = Nz - 2; cntk > 0; cntk --) {
+//                c = - Az * psi[cnti][cntj][cntk + 1] + Az0r * psi[cnti][cntj][cntk] - Az * psi[cnti][cntj][cntk - 1];
+//                cbeta[threadid][cntk - 1] =  cgammaz[cntk] * (Az * cbeta[threadid][cntk] - c);
+//             }
+//             psi[cnti][cntj][0] = 0.;
+//             for (cntk = 0; cntk < Nz - 2; cntk ++) {
+//                psi[cnti][cntj][cntk + 1] = calphaz[cntk] * psi[cnti][cntj][cntk] + cbeta[threadid][cntk];
+//             }
+//             psi[cnti][cntj][Nz - 1] = 0.;
+//          }
+//       }
+//    }
 
-   return;
-}
+//    return;
+// }
 
 
 void outdenxyz(double complex ***psi, FILE *file) {
