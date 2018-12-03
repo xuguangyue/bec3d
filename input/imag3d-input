@@ -13,7 +13,7 @@
 # Public use and modification of this code are allowed provided that the
 # following three papers are cited:
 #
-# [1] L. E. Young-S. et al., Comput. Phys. Commun. 204 (2016) 209. 
+# [1] L. E. Young-S. et al., Comput. Phys. Commun. 204 (2016) 209.
 # [2] P. Muruganandam, S. K. Adhikari, Comput. Phys. Commun. 180 (2009) 1888.
 # [3] D. Vudragovic et al., Comput. Phys. Commun. 183 (2012) 2021.
 #
@@ -42,53 +42,53 @@
 #  Number of atoms in condensate. Required if G0 is not defined.
 #  Required: conditionally
 #  Type: long
-   NATOMS = 1000
+   NATOMS = 100000
 
 #  Unit of length. Required if G0 is not defined.
 #  Required: conditionally
 #  Type: double
    AHO = 1.e-6
 
-#  Contact interaction strength in units of Bohr radius. Required if G0 is not 
+#  Contact interaction strength in units of Bohr radius. Required if G0 is not
 #  defined.
 #  Required: conditionally
 #  Type: double
-   AS = 67.5309784
+   AS = 96.
 
 #  Number of discretization points in the x-direction.
 #  Required: yes
 #  Type: long
-   NX = 240
+   NX = 128
 
 #  Number of discretization points in the y-direction.
 #  Required: yes
 #  Type: long
-   NY = 200
+   NY = 128
 
 #  Number of discretization points in the z-direction.
 #  Required: yes
 #  Type: long
-   NZ = 160
+   NZ = 128
 
 #  Spatial discretization step in the x-direction.
 #  Required: yes
 #  Type: double
-   DX = 0.05
+   DX = 0.25
 
 #  Spatial discretization step in the y-direction.
 #  Required: yes
 #  Type: double
-   DY = 0.05
+   DY = 0.25
 
 #  Spatial discretization step in the z-direction.
 #  Required: yes
 #  Type: double
-   DZ = 0.05
+   DZ = 0.25
 
 #  Time discretization step.
 #  Required: yes
 #  Type: double
-   DT = 0.0004
+   DT = 0.001
 
 #  Gamma coefficient of anisotropy of the trap (omega_x / omega).
 #  Required: yes
@@ -98,12 +98,12 @@
 #  Nu coefficient of anisotropy of the trap (omega_y / omega).
 #  Required: yes
 #  Type: double
-   NU = 1.4142135623731
+   NU = 1.0
 
 #  Lambda coefficient of anisotropy of the trap (omega_z / omega).
 #  Required: yes
 #  Type: double
-   LAMBDA = 2.0
+   LAMBDA = 1.0
 
 #  Number of subsequent iterations to introduce the nonlinearity G0.
 #  Required: yes
@@ -127,33 +127,39 @@
    OUTPUT = imag3d-out
 
 #  Output file with RMS values. The values are written after initialization,
-#  subsequent NSTP, NPAS, and final NRUN iterations. 
+#  subsequent NSTP, NPAS, and final NRUN iterations.
 #  Required: no
 #  Type: string
    RMSOUT = imag3d-rms
 
-#  Output file with the initial wave function. The 1D sections along 
-#  coordinate axes of the wave function are saved, which is designated by a 
-#  suffix x, y, or z. If not defined, the initial wave function will not be 
+#  Output file with RMS values during the time evolution. The values are written in
+#  subsequent NPAS and final NRUN iterations.
+#  Required: no
+#  Type: string
+   DYNAOUT = imag3d-dyna
+
+#  Output file with the initial wave function. The 1D sections along
+#  coordinate axes of the wave function are saved, which is designated by a
+#  suffix x, y, or z. If not defined, the initial wave function will not be
 #  saved.
 #  Required: no
 #  Type: string
 #   INITOUT = imag3d-den-init
 
 #  Output file with the wave function obtained after the subsequent NSTP
-#  iterations to introduce the nonlinearity G0. 
+#  iterations to introduce the nonlinearity G0.
 #  If not defined, the wave function will not be saved.
 #  Required: no
 #  Type: string
 #   NSTPOUT = imag3d-den-nstp
 
 #  Output file with the wave function obtained after the subsequent NPAS
-#  iterations, with the fixed nonlinearity G0. 
+#  iterations, with the fixed nonlinearity G0.
 #  If not defined, the wave function will not be saved.
 #  Required: no
 #  Type: string
 #   NPASOUT = imag3d-den-npas
-    
+
 #  Output file with the final wave function obtained after the final NRUN
 #  iterations. If not defined, the wave function will not be saved.
 #  Required: no
@@ -167,16 +173,22 @@
 #  Type: long
    OUTSTPX = 1
 
-#  Discretization step in the y-direction used to save wave functions. 
-#  Required if any of wave function output files (INITOUT, NSTPOUT, NPASOUT, 
+#  Discretization step in the y-direction used to save wave functions.
+#  Required if any of wave function output files (INITOUT, NSTPOUT, NPASOUT,
 #  NRUNOUT) is defined.
 #  Required: conditionally
 #  Type: long
    OUTSTPY = 1
 
-#  Discretization step in the z-direction used to save wave functions. 
-#  Required if any of wave function output files (INITOUT, NSTPOUT, NPASOUT, 
+#  Discretization step in the z-direction used to save wave functions.
+#  Required if any of wave function output files (INITOUT, NSTPOUT, NPASOUT,
 #  NRUNOUT) is defined.
 #  Required: conditionally
 #  Type: long
    OUTSTPZ = 1
+
+#  Time discretization step used to save RMS of the wave function.
+#  Required if DYNAOUT is defined.
+#  Required: conditionally
+#  Type: long
+   OUTSTPT = 10

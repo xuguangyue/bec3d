@@ -1,16 +1,16 @@
-/**   
+/**
  *    BEC-GP-OMP codes are developed and (c)opyright-ed by:
- *  
+ *
  *    Luis E. Young-S., Sadhan K. Adhikari
  *    (UNESP - Sao Paulo State University, Brazil)
- *  
+ *
  *    Paulsamy Muruganandam
  *    (Bharathidasan University, Tamil Nadu, India)
  *
  *    Dusan Vudragovic, Antun Balaz
  *    (Scientific Computing Laboratory, Institute of Physics Belgrade, Serbia)
  *
- *    Public use and modification of this code are allowed provided that the 
+ *    Public use and modification of this code are allowed provided that the
  *    following three papers are cited:
  *
  *    [1] L. E. Young-S. et al., Comput. Phys. Commun. 204 (2016) 209.
@@ -19,7 +19,7 @@
  *
  *    The authors would be grateful for all information and/or comments
  *    regarding the use of the code.
- *    
+ *
  *    This program solves the time-independent Gross–Pitaevskii nonlinear
  *    partial differential equation in three space dimensions in a trap using
  *    the imaginary-time propagation. The Gross–Pitaevskii equation describes
@@ -28,9 +28,9 @@
  *    discretizing space and time. The discretized equation is then propagated
  *    in imaginary time over small time steps. When convergence is achieved,
  *    the method has yielded the stationary solution of the problem.
- *    
+ *
  *    Description of variables used in the code:
- *    
+ *
  *    opt     - decides which rescaling of GP equation will be used
  *    par     - parameter for rescaling of GP equation
  *    psi     - array with the wave function values
@@ -56,18 +56,18 @@
  *    Nstp    - number of initial iterations to introduce the nonlinearity G0
  *    Npas    - number of subsequent iterations with the fixed nonlinearity G0
  *    Nrun    - number of final iterations with the fixed nonlinearity G0
- *    output  - output file with the summary of final values of all physical 
+ *    output  - output file with the summary of final values of all physical
  *              quantities
  *    initout - output file with the initial wave function
- *    Npasout - output file with the wave function obtained after the 
+ *    Npasout - output file with the wave function obtained after the
  *              subsequent Npas iterations, with the fixed nonlinearity G0
- *    Nrunout - output file with the final wave function obtained after the 
+ *    Nrunout - output file with the final wave function obtained after the
  *              final Nrun iterations
- *    outstpx - discretization step in the x-direction used to save wave 
+ *    outstpx - discretization step in the x-direction used to save wave
  *              functions
- *    outstpy - discretization step in the y-direction used to save wave 
+ *    outstpy - discretization step in the y-direction used to save wave
  *              functions
- *    outstpz - discretization step in the z-direction used to save wave 
+ *    outstpz - discretization step in the z-direction used to save wave
  *              functions
  */
 
@@ -76,57 +76,58 @@
 int main(int argc, char **argv) {
    FILE *out;
    FILE *file;
-   FILE *filerms;         
+   FILE *filerms;
+   FILE *dyna;
    int nthreads;
    char filename[MAX_FILENAME_SIZE];
    long cnti;
    double norm, mu, en;
-   double *rms;   
+   double *rms;
    double ***psi;
    double **cbeta;
    double ***dpsix, ***dpsiy, ***dpsiz;
-   double **tmpxi, **tmpyi, **tmpzi, **tmpxj, **tmpyj, **tmpzj;    
-   double **tmpxk, **tmpyk, **tmpzk;   
-   double *tmpx, *tmpy, *tmpz;   
-   double psi2;     
-   
-   time_t clock_beg, clock_end; 
-   clock_beg = time(NULL);      
+   double **tmpxi, **tmpyi, **tmpzi, **tmpxj, **tmpyj, **tmpzj;
+   double **tmpxk, **tmpyk, **tmpzk;
+   double *tmpx, *tmpy, *tmpz;
+   double psi2;
+
+   time_t clock_beg, clock_end;
+   clock_beg = time(NULL);
    pi = 3.1415927;
-   
+
    if((argc != 3) || (strcmp(*(argv + 1), "-i") != 0)) {
       fprintf(stderr, "Usage: %s -i <input parameter file> \n", *argv);
       exit(EXIT_FAILURE);
    }
-   
+
    if(! cfg_init(argv[2])) {
       fprintf(stderr, "Wrong input parameter file.\n");
       exit(EXIT_FAILURE);
    }
-   
+
    readpar();
-   
+
    #pragma omp parallel
       #pragma omp master
          nthreads = omp_get_num_threads();
-	 
-   rms = alloc_double_vector(RMS_ARRAY_SIZE);   
-	 
+
+   rms = alloc_double_vector(RMS_ARRAY_SIZE);
+
    x = alloc_double_vector(Nx);
    y = alloc_double_vector(Ny);
    z = alloc_double_vector(Nz);
-   
+
    x2 = alloc_double_vector(Nx);
    y2 = alloc_double_vector(Ny);
    z2 = alloc_double_vector(Nz);
 
    pot = alloc_double_tensor(Nx, Ny, Nz);
    psi = alloc_double_tensor(Nx, Ny, Nz);
-   
+
    dpsix = alloc_double_tensor(Nx, Ny, Nz);
    dpsiy = alloc_double_tensor(Nx, Ny, Nz);
    dpsiz = alloc_double_tensor(Nx, Ny, Nz);
-   
+
    calphax = alloc_double_vector(Nx - 1);
    calphay = alloc_double_vector(Ny - 1);
    calphaz = alloc_double_vector(Nz - 1);
@@ -134,7 +135,7 @@ int main(int argc, char **argv) {
    cgammax = alloc_double_vector(Nx - 1);
    cgammay = alloc_double_vector(Ny - 1);
    cgammaz = alloc_double_vector(Nz - 1);
-   
+
    tmpxi = alloc_double_matrix(nthreads, Nx);
    tmpyi = alloc_double_matrix(nthreads, Ny);
    tmpzi = alloc_double_matrix(nthreads, Nz);
@@ -144,24 +145,24 @@ int main(int argc, char **argv) {
    tmpxk = alloc_double_matrix(nthreads, Nx);
    tmpyk = alloc_double_matrix(nthreads, Ny);
    tmpzk = alloc_double_matrix(nthreads, Nz);
-   
+
    tmpx = alloc_double_vector(Nx);
    tmpy = alloc_double_vector(Ny);
    tmpz = alloc_double_vector(Nz);
-   
-   
+
+
    if(output != NULL) {
       sprintf(filename, "%s.txt", output);
       out = fopen(filename, "w");
    }
    else out = stdout;
-   
+
    if(rmsout != NULL) {
       sprintf(filename, "%s.txt", rmsout);
       filerms = fopen(filename, "w");
-   }   
-   else filerms = NULL; 
-   
+   }
+   else filerms = NULL;
+
    fprintf(out, " Imaginary time propagation 3D,   OPTION = %d\n\n", opt);
    fprintf(out, "  Number of Atoms N = %li, Unit of length AHO = %.8f m\n", Na, aho);
    fprintf(out, "  Scattering length a = %.2f*a0\n", as);
@@ -173,9 +174,9 @@ int main(int argc, char **argv) {
    fprintf(out, "   Time Step:   DT = %.6f\n\n",  dt);
    fprintf(out, "                  ----------------------------------------------------------\n");
    fprintf(out, "                    Norm      Chem        Ener/N     <rho>     |Psi(0,0,0)|^2\n");
-   fprintf(out, "                  ----------------------------------------------------------\n");   
+   fprintf(out, "                  ----------------------------------------------------------\n");
    fflush(out);
-   
+
    init(psi);
    gencoef();
    calcnorm(&norm, psi, tmpxi, tmpyi, tmpzi);
@@ -183,23 +184,23 @@ int main(int argc, char **argv) {
    calcrms(rms, psi, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj, tmpxk, tmpyk, tmpzk);
    psi2 = psi[Nx2][Ny2][Nz2] * psi[Nx2][Ny2][Nz2];
    fprintf(out, "Initial : %15.4f %11.5f %11.5f %10.5f %10.5f\n", norm, mu / par, en / par, *rms, psi2);
-   fflush(out); 
+   fflush(out);
 
    if(rmsout != NULL) {
       fprintf(filerms, " Imaginary time propagation 3D,   OPTION = %d\n\n", opt);
       fprintf(filerms, "                  --------------------------------------------------------\n");
       fprintf(filerms, "Values of rms size:       <r>          <x>          <y>          <z>\n");
-      fprintf(filerms, "                  --------------------------------------------------------\n");      
-      fprintf(filerms, "           Initial: %11.5f  %11.5f  %11.5f  %11.5f\n", rms[0], rms[1], rms[2], rms[3]);
+      fprintf(filerms, "                  --------------------------------------------------------\n");
+      fprintf(filerms, "           Initial: %11.5f  %11.5f  %11.5f  %11.5f\n", rms[0], rms[2], rms[4], rms[6]);
       fflush(filerms);
-   } 
+   }
 
    if(initout != NULL) {
       sprintf(filename, "%s.txt", initout);
       file = fopen(filename, "w");
       outdenxyz(psi, file);
       fclose(file);
-     
+
       sprintf(filename, "%s1d_x.txt", initout);
       file = fopen(filename, "w");
       outdenx(psi, tmpy, tmpz, file);
@@ -208,27 +209,27 @@ int main(int argc, char **argv) {
       sprintf(filename, "%s1d_y.txt", initout);
       file = fopen(filename, "w");
       outdeny(psi, tmpx, tmpz, file);
-      fclose(file);      
-      
+      fclose(file);
+
       sprintf(filename, "%s1d_z.txt", initout);
       file = fopen(filename, "w");
       outdenz(psi, tmpx, tmpy, file);
       fclose(file);
-/*   
+/*
       sprintf(filename, "%s2d_xy.txt", initout);
       file = fopen(filename, "w");
       outdenxy(psi, tmpz, file);
-      fclose(file);       
+      fclose(file);
 
       sprintf(filename, "%s2d_xz.txt", initout);
       file = fopen(filename, "w");
       outdenxz(psi, tmpy, file);
-      fclose(file);      
-      
+      fclose(file);
+
       sprintf(filename, "%s2d_yz.txt", initout);
       file = fopen(filename, "w");
       outdenyz(psi, tmpx, file);
-      fclose(file);    
+      fclose(file);
 
       sprintf(filename, "%s3d_x0z.txt", initout);
       file = fopen(filename, "w");
@@ -238,8 +239,8 @@ int main(int argc, char **argv) {
       sprintf(filename, "%s3d_xy0.txt", initout);
       file = fopen(filename, "w");
       outpsi2xy(psi, file);
-      fclose(file);     
-*/   
+      fclose(file);
+*/
    }
 
    if(Nstp != 0) {
@@ -259,7 +260,7 @@ int main(int argc, char **argv) {
      fprintf(out, "NSTP :    %15.4f %11.5f %11.5f %10.5f %10.5f\n", norm, mu / par, en / par, *rms, psi2);
      fflush(out);
      if(rmsout != NULL) {
-       fprintf(filerms, "              NSTP: %11.5f  %11.5f  %11.5f  %11.5f\n", rms[0], rms[1], rms[2], rms[3]);
+       fprintf(filerms, "              NSTP: %11.5f  %11.5f  %11.5f  %11.5f\n", rms[0], rms[2], rms[4], rms[6]);
        fflush(filerms);
      }
      if(Nstpout != NULL) {
@@ -267,7 +268,7 @@ int main(int argc, char **argv) {
       file = fopen(filename, "w");
       outdenxyz(psi, file);
       fclose(file);
-     
+
       sprintf(filename, "%s1d_x.txt", Nstpout);
       file = fopen(filename, "w");
       outdenx(psi, tmpy, tmpz, file);
@@ -276,27 +277,27 @@ int main(int argc, char **argv) {
       sprintf(filename, "%s1d_y.txt", Nstpout);
       file = fopen(filename, "w");
       outdeny(psi, tmpx, tmpz, file);
-      fclose(file);      
-      
+      fclose(file);
+
       sprintf(filename, "%s1d_z.txt", Nstpout);
       file = fopen(filename, "w");
       outdenz(psi, tmpx, tmpy, file);
       fclose(file);
-/*   
+/*
       sprintf(filename, "%s2d_xy.txt", Nstpout);
       file = fopen(filename, "w");
       outdenxy(psi, tmpz, file);
-      fclose(file);       
+      fclose(file);
 
       sprintf(filename, "%s2d_xz.txt", Nstpout);
       file = fopen(filename, "w");
       outdenxz(psi, tmpy, file);
-      fclose(file);      
-      
+      fclose(file);
+
       sprintf(filename, "%s2d_yz.txt", Nstpout);
       file = fopen(filename, "w");
       outdenyz(psi, tmpx, file);
-      fclose(file);    
+      fclose(file);
 
       sprintf(filename, "%s3d_x0z.txt", Nstpout);
       file = fopen(filename, "w");
@@ -306,154 +307,181 @@ int main(int argc, char **argv) {
       sprintf(filename, "%s3d_xy0.txt", Nstpout);
       file = fopen(filename, "w");
       outpsi2xy(psi, file);
-      fclose(file);     
-*/       
-     }     
+      fclose(file);
+*/
+     }
    }
-   else {   
+   else {
      G = par * G0;
    }
-   
-   for(cnti = 0; cnti < Npas; cnti ++) {
-      calcnu(psi);
-      calclux(psi, cbeta);
-      calcluy(psi, cbeta);
-      calcluz(psi, cbeta);
-      calcnorm(&norm, psi, tmpxi, tmpyi, tmpzi);
+
+   if(dynaout != NULL) {
+      sprintf(filename, "%s.txt", dynaout);
+      dyna = fopen(filename, "w");
    }
-   if(Npas != 0){   
+   else dyna = NULL;
+
+   if(Npas != 0){
+      for(cnti = 0; cnti < Npas; cnti ++) {
+         calcnu(psi);
+         calclux(psi, cbeta);
+         calcluy(psi, cbeta);
+         calcluz(psi, cbeta);
+         calcnorm(&norm, psi, tmpxi, tmpyi, tmpzi);
+
+         if((cnti != 0) && (dynaout != NULL) && (cnti % outstpt == 0)) {
+            calcmuen(&mu, &en, psi, dpsix, dpsiy, dpsiz, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj);
+            calcrms(rms, psi, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj, tmpxk, tmpyk, tmpzk);
+            fprintf(dyna, "%5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le\n", cnti * dt * par, norm, mu / par, en / par, *rms, rms[1], rms[2], rms[3], rms[4], rms[5], rms[6]);
+            fflush(dyna);
+         }
+
+         printf("%ld\n", cnti);
+      }
+
       calcmuen(&mu, &en, psi, dpsix, dpsiy, dpsiz, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj);
       calcrms(rms, psi, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj, tmpxk, tmpyk, tmpzk);
       psi2 = psi[Nx2][Ny2][Nz2] * psi[Nx2][Ny2][Nz2];
       fprintf(out, "NPAS :    %15.4f %11.5f %11.5f %10.5f %10.5f\n", norm, mu / par, en / par, *rms, psi2);
-      fflush(out);      
+      fflush(out);
       if(rmsout != NULL) {
-        fprintf(filerms, "              NPAS: %11.5f  %11.5f  %11.5f  %11.5f\n", rms[0], rms[1], rms[2], rms[3]);
+        fprintf(filerms, "              NPAS: %11.5f  %11.5f  %11.5f  %11.5f\n", rms[0], rms[2], rms[4], rms[6]);
         fflush(filerms);
-      }      
+      }
       if(Npasout != NULL) {
-	sprintf(filename, "%s.txt", Npasout);
-	file = fopen(filename, "w");
-	outdenxyz(psi, file);
-	fclose(file);
-     
-	sprintf(filename, "%s1d_x.txt", Npasout);
-	file = fopen(filename, "w");
-	outdenx(psi, tmpy, tmpz, file);
-	fclose(file);
+         sprintf(filename, "%s.txt", Npasout);
+         file = fopen(filename, "w");
+         outdenxyz(psi, file);
+         fclose(file);
 
-	sprintf(filename, "%s1d_y.txt", Npasout);
-	file = fopen(filename, "w");
-	outdeny(psi, tmpx, tmpz, file);
-	fclose(file);      
-      
-	sprintf(filename, "%s1d_z.txt", Npasout);
-	file = fopen(filename, "w");
-	outdenz(psi, tmpx, tmpy, file);
-	fclose(file);
-/*   
-	sprintf(filename, "%s2d_xy.txt", Npasout);
-	file = fopen(filename, "w");
-	outdenxy(psi, tmpz, file);
-	fclose(file);       
+         sprintf(filename, "%s1d_x.txt", Npasout);
+         file = fopen(filename, "w");
+         outdenx(psi, tmpy, tmpz, file);
+         fclose(file);
 
-	sprintf(filename, "%s2d_xz.txt", Npasout);
-	file = fopen(filename, "w");
-	outdenxz(psi, tmpy, file);
-	fclose(file);      
-      
-	sprintf(filename, "%s2d_yz.txt", Npasout);
-	file = fopen(filename, "w");
-	outdenyz(psi, tmpx, file);
-	fclose(file);    
+         sprintf(filename, "%s1d_y.txt", Npasout);
+         file = fopen(filename, "w");
+         outdeny(psi, tmpx, tmpz, file);
+         fclose(file);
 
-	sprintf(filename, "%s3d_x0z.txt", Npasout);
-	file = fopen(filename, "w");
-	outpsi2xz(psi, file);
-	fclose(file);
+         sprintf(filename, "%s1d_z.txt", Npasout);
+         file = fopen(filename, "w");
+         outdenz(psi, tmpx, tmpy, file);
+         fclose(file);
+/*
+         sprintf(filename, "%s2d_xy.txt", Npasout);
+         file = fopen(filename, "w");
+         outdenxy(psi, tmpz, file);
+         fclose(file);
 
-	sprintf(filename, "%s3d_xy0.txt", Npasout);
-	file = fopen(filename, "w");
-	outpsi2xy(psi, file);
-	fclose(file);     
-*/  
+         sprintf(filename, "%s2d_xz.txt", Npasout);
+         file = fopen(filename, "w");
+         outdenxz(psi, tmpy, file);
+         fclose(file);
+
+         sprintf(filename, "%s2d_yz.txt", Npasout);
+         file = fopen(filename, "w");
+         outdenyz(psi, tmpx, file);
+         fclose(file);
+
+         sprintf(filename, "%s3d_x0z.txt", Npasout);
+         file = fopen(filename, "w");
+         outpsi2xz(psi, file);
+         fclose(file);
+
+         sprintf(filename, "%s3d_xy0.txt", Npasout);
+         file = fopen(filename, "w");
+         outpsi2xy(psi, file);
+         fclose(file);
+*/
       }
    }
-   
-   for(cnti = 0; cnti < Nrun; cnti ++) {
-      calcnu(psi);
-      calclux(psi, cbeta);
-      calcluy(psi, cbeta);
-      calcluz(psi, cbeta);
-      calcnorm(&norm, psi, tmpxi, tmpyi, tmpzi);
-   }
-   if(Nrun != 0){    
+
+   if(Nrun != 0){
+      for(cnti = 0; cnti < Nrun; cnti ++) {
+         calcnu(psi);
+         calclux(psi, cbeta);
+         calcluy(psi, cbeta);
+         calcluz(psi, cbeta);
+         calcnorm(&norm, psi, tmpxi, tmpyi, tmpzi);
+
+         if((cnti != 0) && (dynaout != NULL) && (cnti % outstpt == 0)) {
+            calcmuen(&mu, &en, psi, dpsix, dpsiy, dpsiz, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj);
+            calcrms(rms, psi, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj, tmpxk, tmpyk, tmpzk);
+            fprintf(dyna, "%5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le   %5le\n", (cnti + Npas) * dt * par, norm, mu / par, en / par, *rms, rms[1], rms[2], rms[3], rms[4], rms[5], rms[6]);
+            fflush(dyna);
+         }
+
+         printf("%ld\n", cnti);
+      }
+      if(dynaout != NULL) fclose(dyna);
+
       calcmuen(&mu, &en, psi, dpsix, dpsiy, dpsiz, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj);
       calcrms(rms, psi, tmpxi, tmpyi, tmpzi, tmpxj, tmpyj, tmpzj, tmpxk, tmpyk, tmpzk);
       psi2 = psi[Nx2][Ny2][Nz2] * psi[Nx2][Ny2][Nz2];
       fprintf(out, "NRUN :    %15.4f %11.5f %11.5f %10.5f %10.5f\n", norm, mu / par, en / par, *rms, psi2);
-      fflush(out);      
+      fflush(out);
       if(rmsout != NULL) {
-        fprintf(filerms, "              NRUN: %11.5f  %11.5f  %11.5f  %11.5f\n", rms[0], rms[1], rms[2], rms[3]);
-        fprintf(filerms, "                  --------------------------------------------------------\n");        
+        fprintf(filerms, "              NRUN: %11.5f  %11.5f  %11.5f  %11.5f\n", rms[0], rms[2], rms[4], rms[6]);
+        fprintf(filerms, "                  --------------------------------------------------------\n");
         fflush(filerms);
-      }            
-      
+      }
+
       if(Nrunout != NULL) {
-      sprintf(filename, "%s.txt", Nrunout);
-	file = fopen(filename, "w");
-	outdenxyz(psi, file);
-	fclose(file);
-     
-	sprintf(filename, "%s1d_x.txt", Nrunout);
-	file = fopen(filename, "w");
-	outdenx(psi, tmpy, tmpz, file);
-	fclose(file);
+         sprintf(filename, "%s.txt", Nrunout);
+         file = fopen(filename, "w");
+         outdenxyz(psi, file);
+         fclose(file);
 
-	sprintf(filename, "%s1d_y.txt", Nrunout);
-	file = fopen(filename, "w");
-	outdeny(psi, tmpx, tmpz, file);
-	fclose(file);      
-      
-	sprintf(filename, "%s1d_z.txt", Nrunout);
-	file = fopen(filename, "w");
-	outdenz(psi, tmpx, tmpy, file);
-	fclose(file);
-/*   
-	sprintf(filename, "%s2d_xy.txt", Nrunout);
-	file = fopen(filename, "w");
-	outdenxy(psi, tmpz, file);
-	fclose(file);       
-  
-	sprintf(filename, "%s2d_xz.txt", Nrunout);
-	file = fopen(filename, "w");
-	outdenxz(psi, tmpy, file);
-	fclose(file);      
-	
-	sprintf(filename, "%s2d_yz.txt", Nrunout);
-	file = fopen(filename, "w");
-	outdenyz(psi, tmpx, file);
-	fclose(file);    
+         sprintf(filename, "%s1d_x.txt", Nrunout);
+         file = fopen(filename, "w");
+         outdenx(psi, tmpy, tmpz, file);
+         fclose(file);
 
-	sprintf(filename, "%s3d_x0z.txt", Nrunout);
-	file = fopen(filename, "w");
-	outpsi2xz(psi, file);
-	fclose(file);
-  
-	sprintf(filename, "%s3d_xy0.txt", Nrunout);
-	file = fopen(filename, "w");
-	outpsi2xy(psi, file);
-	fclose(file);     
-*/  
+         sprintf(filename, "%s1d_y.txt", Nrunout);
+         file = fopen(filename, "w");
+         outdeny(psi, tmpx, tmpz, file);
+         fclose(file);
+
+         sprintf(filename, "%s1d_z.txt", Nrunout);
+         file = fopen(filename, "w");
+         outdenz(psi, tmpx, tmpy, file);
+         fclose(file);
+/*
+         sprintf(filename, "%s2d_xy.txt", Nrunout);
+         file = fopen(filename, "w");
+         outdenxy(psi, tmpz, file);
+         fclose(file);
+
+         sprintf(filename, "%s2d_xz.txt", Nrunout);
+         file = fopen(filename, "w");
+         outdenxz(psi, tmpy, file);
+         fclose(file);
+
+         sprintf(filename, "%s2d_yz.txt", Nrunout);
+         file = fopen(filename, "w");
+         outdenyz(psi, tmpx, file);
+         fclose(file);
+
+         sprintf(filename, "%s3d_x0z.txt", Nrunout);
+         file = fopen(filename, "w");
+         outpsi2xz(psi, file);
+         fclose(file);
+
+         sprintf(filename, "%s3d_xy0.txt", Nrunout);
+         file = fopen(filename, "w");
+         outpsi2xy(psi, file);
+         fclose(file);
+*/
       }
   }
-   
-   if(rmsout != NULL) fclose(filerms);    
-   
+
+   if(rmsout != NULL) fclose(filerms);
+
    fprintf(out, "                  --------------------------------------------------------\n\n");
-   
-   free_double_vector(rms);   
-   
+
+   free_double_vector(rms);
+
    free_double_vector(x);
    free_double_vector(y);
    free_double_vector(z);
@@ -461,14 +489,14 @@ int main(int argc, char **argv) {
    free_double_vector(x2);
    free_double_vector(y2);
    free_double_vector(z2);
-   
+
    free_double_tensor(pot);
    free_double_tensor(psi);
-   
+
    free_double_tensor(dpsix);
    free_double_tensor(dpsiy);
    free_double_tensor(dpsiz);
-   
+
    free_double_vector(calphax);
    free_double_vector(calphay);
    free_double_vector(calphaz);
@@ -476,7 +504,7 @@ int main(int argc, char **argv) {
    free_double_vector(cgammax);
    free_double_vector(cgammay);
    free_double_vector(cgammaz);
-   
+
    free_double_matrix(tmpxi);
    free_double_matrix(tmpyi);
    free_double_matrix(tmpzi);
@@ -486,19 +514,19 @@ int main(int argc, char **argv) {
    free_double_matrix(tmpxk);
    free_double_matrix(tmpyk);
    free_double_matrix(tmpzk);
-   
+
    free_double_vector(tmpx);
    free_double_vector(tmpy);
-   free_double_vector(tmpz);   
-   
+   free_double_vector(tmpz);
+
    clock_end = time(NULL);
    double wall_time = difftime(clock_end, clock_beg);
    double cpu_time = clock() / (double) CLOCKS_PER_SEC;
    fprintf(out, " Clock Time: %.f seconds\n", wall_time);
-   fprintf(out, " CPU Time: %.f seconds\n", cpu_time);    
-   
-   if(output != NULL) fclose(out);   
-   
+   fprintf(out, " CPU Time: %.f seconds\n", cpu_time);
+
+   if(output != NULL) fclose(out);
+
    return(EXIT_SUCCESS);
 }
 
@@ -507,21 +535,21 @@ int main(int argc, char **argv) {
  */
 void readpar(void) {
    char *cfg_tmp;
-   
+
    if((cfg_tmp = cfg_read("OPTION")) == NULL) {
       fprintf(stderr, "OPTION is not defined in the configuration file\n");
       exit(EXIT_FAILURE);
    }
    opt = atol(cfg_tmp);
-   
+
    if((cfg_tmp = cfg_read("G0")) == NULL) {
-     
+
       if((cfg_tmp = cfg_read("NATOMS")) == NULL) {
 	fprintf(stderr, "NATOMS is not defined in the configuration file.\n");
 	exit(EXIT_FAILURE);
       }
       Na = atol(cfg_tmp);
-     
+
       if((cfg_tmp = cfg_read("AHO")) == NULL) {
          fprintf(stderr, "AHO is not defined in the configuration file.\n");
          exit(EXIT_FAILURE);
@@ -574,7 +602,7 @@ void readpar(void) {
       exit(EXIT_FAILURE);
    }
    dz = atof(cfg_tmp);
-   
+
    if((cfg_tmp = cfg_read("DT")) == NULL) {
       fprintf(stderr, "DT is not defined in the configuration file.\n");
       exit(EXIT_FAILURE);
@@ -585,65 +613,74 @@ void readpar(void) {
       fprintf(stderr, "GAMMA is not defined in the configuration file.\n");
       exit(EXIT_FAILURE);
    }
-   vgamma = atof(cfg_tmp);   
-   
+   vgamma = atof(cfg_tmp);
+
    if((cfg_tmp = cfg_read("NU")) == NULL) {
       fprintf(stderr, "NU is not defined in the configuration file.\n");
       exit(EXIT_FAILURE);
    }
    vnu = atof(cfg_tmp);
-   
+
    if((cfg_tmp = cfg_read("LAMBDA")) == NULL) {
       fprintf(stderr, "LAMBDA is not defined in the configuration file.\n");
       exit(EXIT_FAILURE);
    }
    vlambda = atof(cfg_tmp);
-   
+
    if((cfg_tmp = cfg_read("NSTP")) == NULL) {
       fprintf(stderr, "NSTP is not defined in the configuration file.\n");
       exit(EXIT_FAILURE);
    }
-   Nstp = atol(cfg_tmp);     
-   
+   Nstp = atol(cfg_tmp);
+
    if((cfg_tmp = cfg_read("NPAS")) == NULL) {
       fprintf(stderr, "NPAS is not defined in the configuration file.\n");
       exit(EXIT_FAILURE);
    }
    Npas = atol(cfg_tmp);
-   
+
    if((cfg_tmp = cfg_read("NRUN")) == NULL) {
       fprintf(stderr, "NRUN is not defined in the configuration file.\n");
       exit(EXIT_FAILURE);
    }
    Nrun = atol(cfg_tmp);
-   
+
    output = cfg_read("OUTPUT");
-   rmsout = cfg_read("RMSOUT");    
+   rmsout = cfg_read("RMSOUT");
+   dynaout = cfg_read("DYNAOUT");
    initout = cfg_read("INITOUT");
-   Nstpout = cfg_read("NSTPOUT");        
+   Nstpout = cfg_read("NSTPOUT");
    Npasout = cfg_read("NPASOUT");
    Nrunout = cfg_read("NRUNOUT");
-   
+
    if((initout != NULL) || (Nstpout != NULL) || (Npasout != NULL) || (Nrunout != NULL)) {
       if((cfg_tmp = cfg_read("OUTSTPX")) == NULL) {
          fprintf(stderr, "OUTSTPX is not defined in the configuration file.\n");
          exit(EXIT_FAILURE);
       }
       outstpx = atol(cfg_tmp);
-      
+
       if((cfg_tmp = cfg_read("OUTSTPY")) == NULL) {
          fprintf(stderr, "OUTSTPY is not defined in the configuration file.\n");
          exit(EXIT_FAILURE);
       }
       outstpy = atol(cfg_tmp);
-      
+
       if((cfg_tmp = cfg_read("OUTSTPZ")) == NULL) {
          fprintf(stderr, "OUTSTPZ is not defined in the configuration file.\n");
          exit(EXIT_FAILURE);
       }
       outstpz = atol(cfg_tmp);
    }
-   
+
+   if(dynaout != NULL) {
+      if((cfg_tmp = cfg_read("OUTSTPT")) == NULL) {
+         fprintf(stderr, "OUTSTPT is not defined in the configuration file.\n");
+         exit(EXIT_FAILURE);
+      }
+      outstpt = atol(cfg_tmp);
+   }
+
    return;
 }
 
@@ -657,23 +694,23 @@ void init(double ***psi) {
    double vgamma2, vnu2, vlambda2;
    double cpsi;
    double tmp;
-   
+
    if (opt == 1) par = 1.;
    else if (opt == 2) par = 2.;
    else {
       fprintf(stderr, "OPTION is not well defined in the configuration file\n");
       exit(EXIT_FAILURE);
    }
-   
-   vgamma2 = vgamma * vgamma;   
+
+   vgamma2 = vgamma * vgamma;
    vnu2 = vnu * vnu;
    vlambda2 = vlambda * vlambda;
-   
+
    Nx2 = Nx / 2; Ny2 = Ny / 2; Nz2 = Nz / 2;
    dx2 = dx * dx; dy2 = dy * dy; dz2 = dz * dz;
-   
+
    cpsi = sqrt(pi * sqrt(pi / (vgamma * vnu * vlambda)));
-   
+
    for(cnti = 0; cnti < Nx; cnti ++) {
       x[cnti] = (cnti - Nx2) * dx;
       x2[cnti] = x[cnti] * x[cnti];
@@ -683,14 +720,14 @@ void init(double ***psi) {
          for(cntk = 0; cntk < Nz; cntk ++) {
             z[cntk] = (cntk - Nz2) * dz;
             z2[cntk] = z[cntk] * z[cntk];
-    
+
             pot[cnti][cntj][cntk] = (vgamma2 * x2[cnti] + vnu2 * y2[cntj] + vlambda2 * z2[cntk]);
             tmp = exp(- 0.5 * (vgamma * x2[cnti] + vnu * y2[cntj] + vlambda * z2[cntk]));
             psi[cnti][cntj][cntk] = tmp / cpsi;
          }
       }
    }
-   
+
    return;
 }
 
@@ -699,40 +736,40 @@ void init(double ***psi) {
  */
 void gencoef(void) {
    long cnti;
-   
+
    Ax0 = 1. + dt / dx2;
    Ay0 = 1. + dt / dy2;
    Az0 = 1. + dt / dz2;
-   
+
    Ax0r = 1. - dt / dx2;
    Ay0r = 1. - dt / dy2;
    Az0r = 1. - dt / dz2;
-   
+
    Ax = - 0.5 * dt / dx2;
    Ay = - 0.5 * dt / dy2;
    Az = - 0.5 * dt / dz2;
-   
+
    calphax[Nx - 2] = 0.;
    cgammax[Nx - 2] = - 1. / Ax0;
    for (cnti = Nx - 2; cnti > 0; cnti --) {
       calphax[cnti - 1] = Ax * cgammax[cnti];
       cgammax[cnti - 1] = - 1. / (Ax0 + Ax * calphax[cnti - 1]);
    }
-   
+
    calphay[Ny - 2] = 0.;
    cgammay[Ny - 2] = - 1. / Ay0;
    for (cnti = Ny - 2; cnti > 0; cnti --) {
       calphay[cnti - 1] = Ay * cgammay[cnti];
       cgammay[cnti - 1] = - 1. / (Ay0 + Ay * calphay[cnti - 1]);
    }
-      
+
    calphaz[Nz - 2] = 0.;
    cgammaz[Nz - 2] = - 1. / Az0;
    for (cnti = Nz - 2; cnti > 0; cnti --) {
       calphaz[cnti - 1] = Az * cgammaz[cnti];
       cgammaz[cnti - 1] = - 1. / (Az0 + Az * calphaz[cnti - 1]);
    }
-   
+
    return;
 }
 
@@ -747,11 +784,11 @@ void gencoef(void) {
 void calcnorm(double *norm, double ***psi, double **tmpx, double **tmpy, double **tmpz) {
    int threadid;
    long cnti, cntj, cntk;
-   
+
    #pragma omp parallel private(threadid, cnti, cntj, cntk)
    {
       threadid = omp_get_thread_num();
-      
+
       #pragma omp for
       for(cnti = 0; cnti < Nx; cnti ++) {
          for(cntj = 0; cntj < Ny; cntj ++) {
@@ -766,7 +803,7 @@ void calcnorm(double *norm, double ***psi, double **tmpx, double **tmpy, double 
 
       #pragma omp single
       *norm = sqrt(simpint(dx, tmpx[0], Nx));
-      
+
       #pragma omp for
       for(cnti = 0; cnti < Nx; cnti ++) {
          for(cntj = 0; cntj < Ny; cntj ++) {
@@ -776,7 +813,7 @@ void calcnorm(double *norm, double ***psi, double **tmpx, double **tmpy, double 
          }
       }
    }
-   
+
    return;
 }
 
@@ -799,11 +836,11 @@ void calcmuen(double *mu, double *en, double ***psi, double ***dpsix, double ***
    int threadid;
    long cnti, cntj, cntk;
    double psi2, psi2lin, dpsi2;
-   
+
    #pragma omp parallel private(threadid, cnti, cntj, cntk, psi2, psi2lin, dpsi2)
    {
       threadid = omp_get_thread_num();
-      
+
       #pragma omp for
       for(cntj = 0; cntj < Ny; cntj ++) {
          for(cntk = 0; cntk < Nz; cntk ++) {
@@ -816,7 +853,7 @@ void calcmuen(double *mu, double *en, double ***psi, double ***dpsix, double ***
             }
          }
       }
-      
+
       #pragma omp for
       for(cnti = 0; cnti < Nx; cnti ++) {
          for(cntk = 0; cntk < Nz; cntk ++) {
@@ -829,7 +866,7 @@ void calcmuen(double *mu, double *en, double ***psi, double ***dpsix, double ***
             }
          }
       }
-      
+
       #pragma omp for
       for(cnti = 0; cnti < Nx; cnti ++) {
          for(cntj = 0; cntj < Ny; cntj ++) {
@@ -850,8 +887,8 @@ void calcmuen(double *mu, double *en, double ***psi, double ***dpsix, double ***
             for(cntk = 0; cntk < Nz; cntk ++) {
                psi2 = psi[cnti][cntj][cntk] * psi[cnti][cntj][cntk];
                psi2lin = psi2 * G;
-               dpsi2 = dpsix[cnti][cntj][cntk] * dpsix[cnti][cntj][cntk] + 
-                       dpsiy[cnti][cntj][cntk] * dpsiy[cnti][cntj][cntk] + 
+               dpsi2 = dpsix[cnti][cntj][cntk] * dpsix[cnti][cntj][cntk] +
+                       dpsiy[cnti][cntj][cntk] * dpsiy[cnti][cntj][cntk] +
                        dpsiz[cnti][cntj][cntk] * dpsiz[cnti][cntj][cntk];
                tmpzi[threadid][cntk] = (pot[cnti][cntj][cntk] + psi2lin) * psi2 + dpsi2;
                tmpzj[threadid][cntk] = (pot[cnti][cntj][cntk] + 0.5 * psi2lin) * psi2 + dpsi2;
@@ -863,10 +900,10 @@ void calcmuen(double *mu, double *en, double ***psi, double ***dpsix, double ***
          tmpxj[0][cnti] = simpint(dy, tmpyj[threadid], Ny);
       }
    }
-   
+
    *mu = simpint(dx, tmpxi[0], Nx);
    *en = simpint(dx, tmpxj[0], Nx);
-   
+
    return;
 }
 
@@ -882,11 +919,37 @@ void calcrms(double *rms, double ***psi, double **tmpxi, double **tmpyi, double 
    int threadid;
    long cnti, cntj, cntk;
    double psi2;
-   
+
    #pragma omp parallel private(threadid, cnti, cntj, cntk, psi2)
    {
       threadid = omp_get_thread_num();
-      
+
+      #pragma omp for
+      for(cnti = 0; cnti < Nx; cnti ++) {
+         for(cntj = 0; cntj < Ny; cntj ++) {
+            for(cntk = 0; cntk < Nz; cntk ++) {
+               psi2 = psi[cnti][cntj][cntk] * psi[cnti][cntj][cntk];
+               tmpzi[threadid][cntk] = x[cnti] * psi2;
+               tmpzj[threadid][cntk] = y[cntj] * psi2;
+               tmpzk[threadid][cntk] = z[cntk] * psi2;
+            }
+            tmpyi[threadid][cntj] = simpint(dz, tmpzi[threadid], Nz);
+            tmpyj[threadid][cntj] = simpint(dz, tmpzj[threadid], Nz);
+            tmpyk[threadid][cntj] = simpint(dz, tmpzk[threadid], Nz);
+         }
+         tmpxi[0][cnti] = simpint(dy, tmpyi[threadid], Ny);
+         tmpxj[0][cnti] = simpint(dy, tmpyj[threadid], Ny);
+         tmpxk[0][cnti] = simpint(dy, tmpyk[threadid], Ny);
+      }
+      #pragma omp barrier
+
+      #pragma omp single
+      rms[1] = simpint(dx, tmpxi[0], Nx);
+      #pragma omp single
+      rms[3] = simpint(dx, tmpxj[0], Nx);
+      #pragma omp single
+      rms[5] = simpint(dx, tmpxk[0], Nx);
+
       #pragma omp for
       for(cnti = 0; cnti < Nx; cnti ++) {
          for(cntj = 0; cntj < Ny; cntj ++) {
@@ -897,20 +960,25 @@ void calcrms(double *rms, double ***psi, double **tmpxi, double **tmpyi, double 
                tmpzk[threadid][cntk] = z2[cntk] * psi2;
             }
             tmpyi[threadid][cntj] = simpint(dz, tmpzi[threadid], Nz);
-	    tmpyj[threadid][cntj] = simpint(dz, tmpzj[threadid], Nz);
+            tmpyj[threadid][cntj] = simpint(dz, tmpzj[threadid], Nz);
             tmpyk[threadid][cntj] = simpint(dz, tmpzk[threadid], Nz);
          }
          tmpxi[0][cnti] = simpint(dy, tmpyi[threadid], Ny);
-	 tmpxj[0][cnti] = simpint(dy, tmpyj[threadid], Ny);
-	 tmpxk[0][cnti] = simpint(dy, tmpyk[threadid], Ny);
+         tmpxj[0][cnti] = simpint(dy, tmpyj[threadid], Ny);
+         tmpxk[0][cnti] = simpint(dy, tmpyk[threadid], Ny);
       }
+      #pragma omp barrier
+
+      #pragma omp single
+      rms[2] = sqrt(simpint(dx, tmpxi[0], Nx) - rms[1] * rms[1]);
+      #pragma omp single
+      rms[4] = sqrt(simpint(dx, tmpxj[0], Nx) - rms[3] * rms[3]);
+      #pragma omp single
+      rms[6] = sqrt(simpint(dx, tmpxk[0], Nx) - rms[5] * rms[5]);
    }
-   
-   rms[1] = sqrt(simpint(dx, tmpxi[0], Nx));   
-   rms[2] = sqrt(simpint(dx, tmpxj[0], Nx));   
-   rms[3] = sqrt(simpint(dx, tmpxk[0], Nx));
-   rms[0] = sqrt(rms[1] * rms[1] + rms[2] * rms[2] + rms[3] * rms[3]);
-   
+
+   rms[0] = sqrt(rms[2] * rms[2] + rms[4] * rms[4] + rms[6] * rms[6]);
+
    return;
 }
 
@@ -922,7 +990,7 @@ void calcrms(double *rms, double ***psi, double **tmpxi, double **tmpyi, double 
 void calcnu(double ***psi) {
    long cnti, cntj, cntk;
    double psi2, psi2lin, tmp;
-   
+
    #pragma omp parallel for private(cnti, cntj, cntk, psi2, psi2lin, tmp)
    for(cnti = 0; cnti < Nx; cnti ++) {
       for(cntj = 0; cntj < Ny; cntj ++) {
@@ -934,7 +1002,7 @@ void calcnu(double ***psi) {
          }
       }
    }
-   
+
    return;
 }
 
@@ -947,11 +1015,11 @@ void calclux(double ***psi, double **cbeta) {
    int threadid;
    long cnti, cntj, cntk;
    double c;
-   
+
    #pragma omp parallel private(threadid, cnti, cntj, cntk, c)
    {
       threadid = omp_get_thread_num();
-      
+
       #pragma omp for
       for(cntj = 0; cntj < Ny; cntj ++) {
          for(cntk = 0; cntk < Nz; cntk ++) {
@@ -968,7 +1036,7 @@ void calclux(double ***psi, double **cbeta) {
          }
       }
    }
-   
+
    return;
 }
 
@@ -981,11 +1049,11 @@ void calcluy(double ***psi, double **cbeta) {
    int threadid;
    long cnti, cntj, cntk;
    double c;
-   
+
    #pragma omp parallel private(threadid, cnti, cntj, cntk, c)
    {
       threadid = omp_get_thread_num();
-      
+
       #pragma omp for
       for(cnti = 0; cnti < Nx; cnti ++) {
          for(cntk = 0; cntk < Nz; cntk ++) {
@@ -1002,7 +1070,7 @@ void calcluy(double ***psi, double **cbeta) {
          }
       }
    }
-   
+
    return;
 }
 
@@ -1015,11 +1083,11 @@ void calcluz(double ***psi, double **cbeta) {
    int threadid;
    long cnti, cntj, cntk;
    double c;
-   
+
    #pragma omp parallel private(threadid, cnti, cntj, cntk, c)
    {
       threadid = omp_get_thread_num();
-      
+
       #pragma omp for
       for(cnti = 0; cnti < Nx; cnti ++) {
          for(cntj = 0; cntj < Ny; cntj ++) {
@@ -1036,7 +1104,7 @@ void calcluz(double ***psi, double **cbeta) {
          }
       }
    }
-   
+
    return;
 }
 

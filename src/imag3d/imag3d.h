@@ -1,16 +1,16 @@
-/**   
+/**
  *    BEC-GP-OMP codes are developed and (c)opyright-ed by:
- *  
+ *
  *    Luis E. Young-S., Sadhan K. Adhikari
  *    (UNESP - Sao Paulo State University, Brazil)
- *  
+ *
  *    Paulsamy Muruganandam
  *    (Bharathidasan University, Tamil Nadu, India)
  *
  *    Dusan Vudragovic, Antun Balaz
  *    (Scientific Computing Laboratory, Institute of Physics Belgrade, Serbia)
  *
- *    Public use and modification of this code are allowed provided that the 
+ *    Public use and modification of this code are allowed provided that the
  *    following three papers are cited:
  *
  *    [1] L. E. Young-S. et al., Comput. Phys. Commun. 204 (2016) 209.
@@ -30,12 +30,12 @@
 
 #define MAX(a, b, c) (a > b) ? ((a > c) ? a : c) : ((b > c) ? b : c)
 #define MAX_FILENAME_SIZE 256
-#define RMS_ARRAY_SIZE     4
+#define RMS_ARRAY_SIZE     7
 
 #define BOHR_RADIUS        5.2917720859e-11
 
-char *output, *rmsout, *initout, *Nstpout, *Npasout, *Nrunout;
-long outstpx, outstpy, outstpz;
+char *output, *rmsout, *dynaout, *initout, *Nstpout, *Npasout, *Nrunout;
+long outstpx, outstpy, outstpz, outstpt;
 
 int opt;
 long Na;
