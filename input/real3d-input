@@ -64,17 +64,17 @@
 #  Number of discretization points in the x-direction.
 #  Required: yes
 #  Type: long
-   NX = 128
+   NX = 256
 
 #  Number of discretization points in the y-direction.
 #  Required: yes
 #  Type: long
-   NY = 128
+   NY = 256
 
 #  Number of discretization points in the z-direction.
 #  Required: yes
 #  Type: long
-   NZ = 128
+   NZ = 256
 
 #  Spatial discretization step in the x-direction.
 #  Required: yes
@@ -129,7 +129,7 @@
 #  Driving frequency of the trap.
 #  Required: yes
 #  Type: double
-   FREQ = 4.41
+   FREQ = 2.236
 
 #  Number of iterations to introduce the nonlinearity G0.
 #  If NSTP = 0, the program need to read the density file: imag3d-den.txt

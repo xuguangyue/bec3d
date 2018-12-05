@@ -1,7 +1,7 @@
 clear
 clc
 
-[x,y,z,den]=load3d('./real3d-tmpwf_8');
+[x,y,z,den]=load3d('./imag3d-den');
 % [x,y,z,den]=load3d('./N=6000_omg=1.7/data/real3d-den');
 [x2,y2,z2]=meshgrid(y, z, x);
 
@@ -36,6 +36,6 @@ daspect([1 1 1])                             % set the axes aspect ratio
 colormap(gray(100))
 box on
 
-camlight(40,40)                                % create two lights 
+camlight(40,40)                                % create two lights
 camlight(-20,-10)
 lighting gouraud

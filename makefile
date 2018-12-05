@@ -28,18 +28,18 @@
 # OMPLIBS = -lpthread
 
 # ifeq ($(compiler), gcc)
-	# CC = gcc-8 -m64
-	# CFLAGS = -O3 -Wall
-	# OMPFLAGS = -fopenmp
-	# CLIBS = -lfftw3 -lm
-	# OMPLIBS = -lfftw3_omp
-# endif
-
 	CC = gcc-8 -m64
 	CFLAGS = -O3 -Wall
 	OMPFLAGS = -fopenmp
 	CLIBS = -lfftw3 -lm
 	OMPLIBS = -lfftw3_omp
+# endif
+
+	# CC = gcc-8 -m64
+	# CFLAGS = -O3 -Wall -I/usr/local/include
+	# OMPFLAGS = -fopenmp
+	# CLIBS = -L/usr/local/lib -lfftw3 -lm
+	# OMPLIBS = -lfftw3_omp
 
 all: imag3d real3d
 
