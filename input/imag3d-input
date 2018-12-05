@@ -58,17 +58,17 @@
 #  Number of discretization points in the x-direction.
 #  Required: yes
 #  Type: long
-   NX = 128
+   NX = 256
 
 #  Number of discretization points in the y-direction.
 #  Required: yes
 #  Type: long
-   NY = 128
+   NY = 256
 
 #  Number of discretization points in the z-direction.
 #  Required: yes
 #  Type: long
-   NZ = 128
+   NZ = 256
 
 #  Spatial discretization step in the x-direction.
 #  Required: yes

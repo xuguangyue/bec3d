@@ -1,7 +1,7 @@
 clear
 clc
 
-[x,y,z,den]=load3d('./real3d-tmpwf_4');
+[x,y,z,den]=load3d('./imag3d-den');
 % [x,y,z,den]=load3d('./N=6000_omg=1.7/data/real3d-den');
 [x2,y2,z2]=meshgrid(y, z, x);
 

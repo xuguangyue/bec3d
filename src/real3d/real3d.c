@@ -921,48 +921,6 @@ void init(double complex ***psi, double ***abc) {
 }
 
 /**
- *    Crank-Nicolson scheme coefficients generation.
- */
-// void gencoef(void) {
-//    long cnti;
-
-//    Ax0 = 1. + I * dt / dx2;
-//    Ay0 = 1. + I * dt / dy2;
-//    Az0 = 1. + I * dt / dz2;
-
-//    Ax0r = 1. - I * dt / dx2;
-//    Ay0r = 1. - I * dt / dy2;
-//    Az0r = 1. - I * dt / dz2;
-
-//    Ax = - 0.5 * I * dt / dx2;
-//    Ay = - 0.5 * I * dt / dy2;
-//    Az = - 0.5 * I * dt / dz2;
-
-//    calphax[Nx - 2] = 0.;
-//    cgammax[Nx - 2] = - 1. / Ax0;
-//    for (cnti = Nx - 2; cnti > 0; cnti --) {
-//       calphax[cnti - 1] = Ax * cgammax[cnti];
-//       cgammax[cnti - 1] = - 1. / (Ax0 + Ax * calphax[cnti - 1]);
-//    }
-
-//    calphay[Ny - 2] = 0.;
-//    cgammay[Ny - 2] = - 1. / Ay0;
-//    for (cnti = Ny - 2; cnti > 0; cnti --) {
-//       calphay[cnti - 1] = Ay * cgammay[cnti];
-//       cgammay[cnti - 1] = - 1. / (Ay0 + Ay * calphay[cnti - 1]);
-//    }
-
-//    calphaz[Nz - 2] = 0.;
-//    cgammaz[Nz - 2] = - 1. / Az0;
-//    for (cnti = Nz - 2; cnti > 0; cnti --) {
-//       calphaz[cnti - 1] = Az * cgammaz[cnti];
-//       cgammaz[cnti - 1] = - 1. / (Az0 + Az * calphaz[cnti - 1]);
-//    }
-
-//    return;
-// }
-
-/**
  *    Calculation of the wave function norm and normalization.
  *    norm - wave function norm
  *    psi  - array with the wave function values
@@ -1279,115 +1237,12 @@ void calcfft(double complex ***psi, fftw_complex *fftin, fftw_complex *fftout, f
 }
 
 
-/**
- *    Time propagation with respect to H2 (x-part of the Laplacian).
- *    psi   - array with the wave function values
- *    cbeta - Crank-Nicolson scheme coefficients
- */
-// void calclux(double complex ***psi, double complex **cbeta) {
-//    int threadid;
-//    long cnti, cntj, cntk;
-//    double complex c;
-
-//    #pragma omp parallel private(threadid, cnti, cntj, cntk, c)
-//    {
-//       threadid = omp_get_thread_num();
-
-//       #pragma omp for
-//       for(cntj = 0; cntj < Ny; cntj ++) {
-//          for(cntk = 0; cntk < Nz; cntk ++) {
-//             cbeta[threadid][Nx - 2] = psi[Nx - 1][cntj][cntk];
-//             for (cnti = Nx - 2; cnti > 0; cnti --) {
-//                c = - Ax * psi[cnti + 1][cntj][cntk] + Ax0r * psi[cnti][cntj][cntk] - Ax * psi[cnti - 1][cntj][cntk];
-//                cbeta[threadid][cnti - 1] =  cgammax[cnti] * (Ax * cbeta[threadid][cnti] - c);
-//             }
-//             psi[0][cntj][cntk] = 0.;
-//             for (cnti = 0; cnti < Nx - 2; cnti ++) {
-//                psi[cnti + 1][cntj][cntk] = calphax[cnti] * psi[cnti][cntj][cntk] + cbeta[threadid][cnti];
-//             }
-//             psi[Nx - 1][cntj][cntk] = 0.;
-//          }
-//       }
-//    }
-
-//    return;
-// }
-
-/**
- *    Time propagation with respect to H3 (y-part of the Laplacian).
- *    psi   - array with the wave function values
- *    cbeta - Crank-Nicolson scheme coefficients
- */
-// void calcluy(double complex ***psi, double complex **cbeta) {
-//    int threadid;
-//    long cnti, cntj, cntk;
-//    double complex c;
-
-//    #pragma omp parallel private(threadid, cnti, cntj, cntk, c)
-//    {
-//       threadid = omp_get_thread_num();
-
-//       #pragma omp for
-//       for(cnti = 0; cnti < Nx; cnti ++) {
-//          for(cntk = 0; cntk < Nz; cntk ++) {
-//             cbeta[threadid][Ny - 2] = psi[cnti][Ny - 1][cntk];
-//             for (cntj = Ny - 2; cntj > 0; cntj --) {
-//                c = - Ay * psi[cnti][cntj + 1][cntk] + Ay0r * psi[cnti][cntj][cntk] - Ay * psi[cnti][cntj - 1][cntk];
-//                cbeta[threadid][cntj - 1] =  cgammay[cntj] * (Ay * cbeta[threadid][cntj] - c);
-//             }
-//             psi[cnti][0][cntk] = 0.;
-//             for (cntj = 0; cntj < Ny - 2; cntj ++) {
-//                psi[cnti][cntj + 1][cntk] = calphay[cntj] * psi[cnti][cntj][cntk] + cbeta[threadid][cntj];
-//             }
-//             psi[cnti][Ny - 1][cntk] = 0.;
-//          }
-//       }
-//    }
-
-//    return;
-// }
-
-/**
- *    Time propagation with respect to H4 (z-part of the Laplacian).
- *    psi   - array with the wave function values
- *    cbeta - Crank-Nicolson scheme coefficients
- */
-// void calcluz(double complex ***psi, double complex **cbeta) {
-//    int threadid;
-//    long cnti, cntj, cntk;
-//    double complex c;
-
-//    #pragma omp parallel private(threadid, cnti, cntj, cntk, c)
-//    {
-//       threadid = omp_get_thread_num();
-
-//       #pragma omp for
-//       for(cnti = 0; cnti < Nx; cnti ++) {
-//          for(cntj = 0; cntj < Ny; cntj ++) {
-//             cbeta[threadid][Nz - 2] = psi[cnti][cntj][Nz - 1];
-//             for (cntk = Nz - 2; cntk > 0; cntk --) {
-//                c = - Az * psi[cnti][cntj][cntk + 1] + Az0r * psi[cnti][cntj][cntk] - Az * psi[cnti][cntj][cntk - 1];
-//                cbeta[threadid][cntk - 1] =  cgammaz[cntk] * (Az * cbeta[threadid][cntk] - c);
-//             }
-//             psi[cnti][cntj][0] = 0.;
-//             for (cntk = 0; cntk < Nz - 2; cntk ++) {
-//                psi[cnti][cntj][cntk + 1] = calphaz[cntk] * psi[cnti][cntj][cntk] + cbeta[threadid][cntk];
-//             }
-//             psi[cnti][cntj][Nz - 1] = 0.;
-//          }
-//       }
-//    }
-
-//    return;
-// }
-
-
 void outdenxyz(double complex ***psi, FILE *file) {
    long cnti, cntj, cntk;
 
-   for(cnti = 0; cnti < Nx; cnti += outstpx) {
-      for(cntj = 0; cntj < Ny; cntj += outstpy) {
-	 for(cntk = 0; cntk < Nz; cntk += outstpz) {
+   for(cnti = 0; cnti <= Nx2; cnti += outstpx) {
+      for(cntj = 0; cntj <= Ny2; cntj += outstpy) {
+	 for(cntk = 0; cntk <= Nz2; cntk += outstpz) {
 	    fprintf(file, "%8le %8le %8le %8le\n", x[cnti], y[cntj], z[cntk],  cabs(psi[cnti][cntj][cntk]) *  cabs(psi[cnti][cntj][cntk]));
 // 	    fprintf(file, "%8le\n", psi[cnti][cntj][cntk] * psi[cnti][cntj][cntk]);
 	    fflush(file);
