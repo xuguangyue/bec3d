@@ -1,7 +1,7 @@
 clear
 clc
 
-[x,y,z,den]=load3d('./imag3d-den');
+[x,y,z,den]=load3d('./real3d-tmpwf_20',1);
 % [x,y,z,den]=load3d('./N=6000_omg=1.7/data/real3d-den');
 [x2,y2,z2]=meshgrid(y, z, x);
 
@@ -10,12 +10,13 @@ yslice = 0;
 zslice = 0;
 
 figure
-slice(x2, y2 ,z2, den, xslice, yslice, zslice)    % display the slices
+slice(x2, y2 ,z2, log10(den), xslice, yslice, zslice)    % display the slices
+axis equal
 ylim([-16 16])
 xlim([-16 16])
 zlim([-16 16])
 view(-34,24)
-axis equal
+
 shading interp
 
 [fo,vo] = isosurface(x2,y2,z2,den,0.00001);               % isosurface for the outside of the volume

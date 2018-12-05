@@ -94,7 +94,7 @@
 #  Time discretization step.
 #  Required: yes
 #  Type: double
-   DT = 0.001
+   DT = 0.002
 
 #  Gamma coefficient of anisotropy of the trap (omega_x / omega).
 #  Required: yes
@@ -230,7 +230,7 @@
 #  Required if DYNAOUT is defined.
 #  Required: conditionally
 #  Type: long
-   OUTSTPT = 10
+   OUTSTPT = 20
 
 #  Time discretization step used to save the wave function.
 #  Required if DYNAOUT is defined.
